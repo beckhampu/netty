@@ -38,20 +38,21 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@link Bootstrap} sub-class which allows easy bootstrap of {@link ServerChannel}
- *
  */
 public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerChannel> {
-
+    
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ServerBootstrap.class);
-
+    
     private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> childAttrs = new LinkedHashMap<AttributeKey<?>, Object>();
     private final ServerBootstrapConfig config = new ServerBootstrapConfig(this);
+    //工作线程
     private volatile EventLoopGroup childGroup;
     private volatile ChannelHandler childHandler;
-
-    public ServerBootstrap() { }
-
+    
+    public ServerBootstrap() {
+    }
+    
     private ServerBootstrap(ServerBootstrap bootstrap) {
         super(bootstrap);
         childGroup = bootstrap.childGroup;
@@ -63,7 +64,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             childAttrs.putAll(bootstrap.childAttrs);
         }
     }
-
+    
     /**
      * Specify the {@link EventLoopGroup} which is used for the parent (acceptor) and the child (client).
      */
@@ -71,7 +72,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     public ServerBootstrap group(EventLoopGroup group) {
         return group(group, group);
     }
-
+    
     /**
      * Set the {@link EventLoopGroup} for the parent (acceptor) and the child (client). These
      * {@link EventLoopGroup}'s are used to handle all the events and IO for {@link ServerChannel} and
@@ -88,7 +89,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         this.childGroup = childGroup;
         return this;
     }
-
+    
     /**
      * Allow to specify a {@link ChannelOption} which is used for the {@link Channel} instances once they get created
      * (after the acceptor accepted the {@link Channel}). Use a value of {@code null} to remove a previous set
@@ -109,7 +110,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
         return this;
     }
-
+    
     /**
      * Set the specific {@link AttributeKey} with the given value on every child {@link Channel}. If the value is
      * {@code null} the {@link AttributeKey} is removed
@@ -125,7 +126,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
         return this;
     }
-
+    
     /**
      * Set the {@link ChannelHandler} which is used to serve the request for the {@link Channel}'s.
      */
@@ -136,27 +137,38 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         this.childHandler = childHandler;
         return this;
     }
-
+    
+    /**
+     * 初始化服务端channel
+     *
+     * @param channel
+     * @throws Exception
+     */
     @Override
     void init(Channel channel) throws Exception {
+        //获取options,并设置到channel中
         final Map<ChannelOption<?>, Object> options = options0();
         synchronized (options) {
             setChannelOptions(channel, options, logger);
         }
-
+        
+        //获取attrs，并设置到channel中
         final Map<AttributeKey<?>, Object> attrs = attrs0();
         synchronized (attrs) {
-            for (Entry<AttributeKey<?>, Object> e: attrs.entrySet()) {
+            for (Entry<AttributeKey<?>, Object> e : attrs.entrySet()) {
                 @SuppressWarnings("unchecked")
                 AttributeKey<Object> key = (AttributeKey<Object>) e.getKey();
                 channel.attr(key).set(e.getValue());
             }
         }
-
+        
+        //获取channel创建时创建的pipeline
         ChannelPipeline p = channel.pipeline();
-
+        
         final EventLoopGroup currentChildGroup = childGroup;
         final ChannelHandler currentChildHandler = childHandler;
+        
+        //获取childOptions、childAttrs
         final Entry<ChannelOption<?>, Object>[] currentChildOptions;
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs;
         synchronized (childOptions) {
@@ -165,7 +177,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         synchronized (childAttrs) {
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(childAttrs.size()));
         }
-
+        
+        //进行handler绑定，首先绑定用户通过handler()方法传入的handler
+        //然后默认绑定一个ServerBootstrapAcceptor，特殊的handler（连接器），处理客户端的连接
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {
@@ -174,7 +188,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
-
+                
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
@@ -185,7 +199,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
         });
     }
-
+    
+    /**
+     * 覆盖父类方法，参数校验
+     *
+     * @return
+     */
     @Override
     public ServerBootstrap validate() {
         super.validate();
@@ -198,25 +217,25 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
         return this;
     }
-
+    
     @SuppressWarnings("unchecked")
     private static Entry<AttributeKey<?>, Object>[] newAttrArray(int size) {
         return new Entry[size];
     }
-
+    
     @SuppressWarnings("unchecked")
     private static Map.Entry<ChannelOption<?>, Object>[] newOptionArray(int size) {
         return new Map.Entry[size];
     }
-
+    
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
-
+        
         private final EventLoopGroup childGroup;
         private final ChannelHandler childHandler;
         private final Entry<ChannelOption<?>, Object>[] childOptions;
         private final Entry<AttributeKey<?>, Object>[] childAttrs;
         private final Runnable enableAutoReadTask;
-
+        
         ServerBootstrapAcceptor(
                 final Channel channel, EventLoopGroup childGroup, ChannelHandler childHandler,
                 Entry<ChannelOption<?>, Object>[] childOptions, Entry<AttributeKey<?>, Object>[] childAttrs) {
@@ -224,7 +243,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             this.childHandler = childHandler;
             this.childOptions = childOptions;
             this.childAttrs = childAttrs;
-
+            
             // Task which is scheduled to re-enable auto-read.
             // It's important to create this Runnable before we try to submit it as otherwise the URLClassLoader may
             // not be able to load the class because of the file limit it already reached.
@@ -237,20 +256,20 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 }
             };
         }
-
+        
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             final Channel child = (Channel) msg;
-
+            
             child.pipeline().addLast(childHandler);
-
+            
             setChannelOptions(child, childOptions, logger);
-
-            for (Entry<AttributeKey<?>, Object> e: childAttrs) {
+            
+            for (Entry<AttributeKey<?>, Object> e : childAttrs) {
                 child.attr((AttributeKey<Object>) e.getKey()).set(e.getValue());
             }
-
+            
             try {
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
@@ -264,12 +283,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 forceClose(child, t);
             }
         }
-
+        
         private static void forceClose(Channel child, Throwable t) {
             child.unsafe().closeForcibly();
             logger.warn("Failed to register an accepted channel: {}", child, t);
         }
-
+        
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             final ChannelConfig config = ctx.channel().config();
@@ -284,13 +303,13 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             ctx.fireExceptionCaught(cause);
         }
     }
-
+    
     @Override
     @SuppressWarnings("CloneDoesntCallSuperClone")
     public ServerBootstrap clone() {
         return new ServerBootstrap(this);
     }
-
+    
     /**
      * Return the configured {@link EventLoopGroup} which will be used for the child channels or {@code null}
      * if non is configured yet.
@@ -301,19 +320,19 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     public EventLoopGroup childGroup() {
         return childGroup;
     }
-
+    
     final ChannelHandler childHandler() {
         return childHandler;
     }
-
+    
     final Map<ChannelOption<?>, Object> childOptions() {
         return copiedMap(childOptions);
     }
-
+    
     final Map<AttributeKey<?>, Object> childAttrs() {
         return copiedMap(childAttrs);
     }
-
+    
     @Override
     public final ServerBootstrapConfig config() {
         return config;

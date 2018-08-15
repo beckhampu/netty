@@ -80,8 +80,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
+        //创建channelId，channel唯一标识
         id = newId();
+        //创建Unsafe，Unsafe 是channel的内部接口， 负责跟socket底层打交道
         unsafe = newUnsafe();
+        //创建pipeline（DefaultChannelPipeline）
         pipeline = newChannelPipeline();
     }
 
@@ -469,7 +472,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
-
+            
+            //完成eventLoop的赋值操作
             AbstractChannel.this.eventLoop = eventLoop;
 
             if (eventLoop.inEventLoop()) {
@@ -501,15 +505,18 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                //完成实际的jdk底层channle的注册
                 doRegister();
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                // 调用ServerBootstrap中传入的自定义handler的handlerAdded()方法
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 safeSetSuccess(promise);
+                // 调用ServerBootstrap中传入的自定义handler的channelRegistered()方法
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
@@ -555,13 +562,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             boolean wasActive = isActive();
             try {
+                //调用子类的doBind()方法，如NioServerSocketChannel.doBind()方法
                 doBind(localAddress);
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
                 closeIfClosed();
                 return;
             }
-
+            
+            //当调用doBind成功后，调用ServerBootstrap中传入的自定义handler的channelActive()方法
             if (!wasActive && isActive()) {
                 invokeLater(new Runnable() {
                     @Override

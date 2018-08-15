@@ -51,8 +51,15 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     volatile EventLoopGroup group;
     @SuppressWarnings("deprecation")
+    /**
+     * channel创建工厂
+     */
     private volatile ChannelFactory<? extends C> channelFactory;
     private volatile SocketAddress localAddress;
+    /**
+     * options是提供给NioServerSocketChannel用来接收进来的连接,也就是boss线程。
+     * ServerBootStrap中的childOptions是提供给由父管道ServerChannel接收到的连接，也就是worker线程
+     */
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
     private volatile ChannelHandler handler;
@@ -94,11 +101,15 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * The {@link Class} which is used to create {@link Channel} instances from.
      * You either use this or {@link #channelFactory(io.netty.channel.ChannelFactory)} if your
      * {@link Channel} implementation has no no-args constructor.
+     * 
+     * 设置channel类型，构建channelFactory
+     * 
      */
     public B channel(Class<? extends C> channelClass) {
         if (channelClass == null) {
             throw new NullPointerException("channelClass");
         }
+        //设置channelFactory，返回子类，链式操作
         return channelFactory(new ReflectiveChannelFactory<C>(channelClass));
     }
 
@@ -206,6 +217,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * Validate all the parameters. Sub-classes may override this, but should
      * call the super method in that case.
+     * 
+     * 参数校验方法，子类可重写，但必须调用父类此方法
+     * 
      */
     @SuppressWarnings("unchecked")
     public B validate() {
@@ -270,16 +284,26 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * Create a new {@link Channel} and bind it.
+     * 
+     * 服务端地址、端口绑定
+     * 
      */
     public ChannelFuture bind(SocketAddress localAddress) {
+        //参数校验
         validate();
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
         }
         return doBind(localAddress);
     }
-
+    
+    /**
+     * 绑定方法
+     * @param localAddress
+     * @return
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        //创建并注册channel
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
@@ -289,6 +313,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            // 完成ip和port绑定
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
@@ -314,11 +339,17 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return promise;
         }
     }
-
+    
+    /**
+     * 初始化注册channel
+     * @return
+     */
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            //通过channel()方法传入的clazz，反射创建channel
             channel = channelFactory.newChannel();
+            //初始化channel
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -328,7 +359,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
             return new DefaultChannelPromise(channel, GlobalEventExecutor.INSTANCE).setFailure(t);
         }
-
+        
+        //channel创建和初始化完成后， 完成channel的注册，将channel注册到selector上
+        //最终会调用AbstractChannel.AbstractUnsafe.register()方法
+        //调用链：MultithreadEventLoopGroup.register -> SingleThreadEventLoop.register -> AbstractUnsafe.register
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -358,6 +392,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        // 最终会调用到AbstractChannel.AbstractUnsafe.bind()方法
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
@@ -453,6 +488,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * 将option设置到channel的config中
+     */
     private static void setChannelOption(
             Channel channel, ChannelOption<?> option, Object value, InternalLogger logger) {
         try {

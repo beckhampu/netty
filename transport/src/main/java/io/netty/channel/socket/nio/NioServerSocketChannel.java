@@ -41,13 +41,23 @@ import java.util.List;
  * NIO selector based implementation to accept new connections.
  */
 public class NioServerSocketChannel extends AbstractNioMessageChannel
-                             implements io.netty.channel.socket.ServerSocketChannel {
-
+        implements io.netty.channel.socket.ServerSocketChannel {
+    
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
+    
+    /**
+     * jdk的SelectorProvider，用于构建Selector
+     */
     private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
-
+    
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
-
+    
+    /**
+     * 创建jdk底层channel-ServerSocketChannel
+     *
+     * @param provider
+     * @return
+     */
     private static ServerSocketChannel newSocket(SelectorProvider provider) {
         try {
             /**
@@ -56,90 +66,93 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
              *
              *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
              */
+            //java nio方法创建 ServerSocketChannel（等同于ServerSocketChannel.open()方法）
             return provider.openServerSocketChannel();
         } catch (IOException e) {
             throw new ChannelException(
                     "Failed to open a server socket.", e);
         }
     }
-
+    
     private final ServerSocketChannelConfig config;
-
+    
     /**
      * Create a new instance
      */
     public NioServerSocketChannel() {
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
-
+    
     /**
      * Create a new instance using the given {@link SelectorProvider}.
      */
     public NioServerSocketChannel(SelectorProvider provider) {
         this(newSocket(provider));
     }
-
+    
     /**
      * Create a new instance using the given {@link ServerSocketChannel}.
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
         super(null, channel, SelectionKey.OP_ACCEPT);
+        //创建channelconfig
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
-
+    
     @Override
     public InetSocketAddress localAddress() {
         return (InetSocketAddress) super.localAddress();
     }
-
+    
     @Override
     public ChannelMetadata metadata() {
         return METADATA;
     }
-
+    
     @Override
     public ServerSocketChannelConfig config() {
         return config;
     }
-
+    
     @Override
     public boolean isActive() {
         return javaChannel().socket().isBound();
     }
-
+    
     @Override
     public InetSocketAddress remoteAddress() {
         return null;
     }
-
+    
     @Override
     protected ServerSocketChannel javaChannel() {
         return (ServerSocketChannel) super.javaChannel();
     }
-
+    
     @Override
     protected SocketAddress localAddress0() {
         return SocketUtils.localSocketAddress(javaChannel().socket());
     }
-
+    
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
+        //完成jdk底层channel的绑定
         if (PlatformDependent.javaVersion() >= 7) {
             javaChannel().bind(localAddress, config.getBacklog());
         } else {
             javaChannel().socket().bind(localAddress, config.getBacklog());
         }
     }
-
+    
     @Override
     protected void doClose() throws Exception {
         javaChannel().close();
     }
-
+    
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
         SocketChannel ch = SocketUtils.accept(javaChannel());
-
+        
         try {
             if (ch != null) {
                 buf.add(new NioSocketChannel(this, ch));
@@ -147,54 +160,54 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
             }
         } catch (Throwable t) {
             logger.warn("Failed to create a new channel from an accepted socket.", t);
-
+            
             try {
                 ch.close();
             } catch (Throwable t2) {
                 logger.warn("Failed to close a socket.", t2);
             }
         }
-
+        
         return 0;
     }
-
+    
     // Unnecessary stuff
     @Override
     protected boolean doConnect(
             SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
         throw new UnsupportedOperationException();
     }
-
+    
     @Override
     protected void doFinishConnect() throws Exception {
         throw new UnsupportedOperationException();
     }
-
+    
     @Override
     protected SocketAddress remoteAddress0() {
         return null;
     }
-
+    
     @Override
     protected void doDisconnect() throws Exception {
         throw new UnsupportedOperationException();
     }
-
+    
     @Override
     protected boolean doWriteMessage(Object msg, ChannelOutboundBuffer in) throws Exception {
         throw new UnsupportedOperationException();
     }
-
+    
     @Override
     protected final Object filterOutboundMessage(Object msg) throws Exception {
         throw new UnsupportedOperationException();
     }
-
+    
     private final class NioServerSocketChannelConfig extends DefaultServerSocketChannelConfig {
         private NioServerSocketChannelConfig(NioServerSocketChannel channel, ServerSocket javaSocket) {
             super(channel, javaSocket);
         }
-
+        
         @Override
         protected void autoReadCleared() {
             clearReadPending();

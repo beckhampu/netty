@@ -82,9 +82,14 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
         super(parent);
+        //将前面 provider.openServerSocketChannel()创建出来的 ServerSocketChannel 保存到成员变量ch中
+        //也有可能是客户端的SocketChannel
         this.ch = ch;
+        //将SelectionKey.OP_ACCEPT保存到成员变量readInterestOp中
+        //也有可能是客户端你的OP_READ
         this.readInterestOp = readInterestOp;
         try {
+            //jdk操作，服务器配置为非阻塞  
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
@@ -384,6 +389,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                //调用jdk方法，将jdk的ServerSocketChannel注册到reactor线程的多路复用器Selector上
+                //并将netty的channle保存在jdk的channle上
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
@@ -417,6 +424,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         readPending = true;
 
         final int interestOps = selectionKey.interestOps();
+        //监听Accept事件
         if ((interestOps & readInterestOp) == 0) {
             selectionKey.interestOps(interestOps | readInterestOp);
         }

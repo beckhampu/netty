@@ -23,51 +23,60 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * 带有简单命名规则的默认线程工厂
+ *
  * A {@link ThreadFactory} implementation with a simple naming rule.
  */
 public class DefaultThreadFactory implements ThreadFactory {
-
+    
+    //自增的线程池Id
     private static final AtomicInteger poolId = new AtomicInteger();
-
+    
     private final AtomicInteger nextId = new AtomicInteger();
     private final String prefix;
     private final boolean daemon;
     private final int priority;
     protected final ThreadGroup threadGroup;
-
+    
     public DefaultThreadFactory(Class<?> poolType) {
         this(poolType, false, Thread.NORM_PRIORITY);
     }
-
+    
     public DefaultThreadFactory(String poolName) {
         this(poolName, false, Thread.NORM_PRIORITY);
     }
-
+    
     public DefaultThreadFactory(Class<?> poolType, boolean daemon) {
         this(poolType, daemon, Thread.NORM_PRIORITY);
     }
-
+    
     public DefaultThreadFactory(String poolName, boolean daemon) {
         this(poolName, daemon, Thread.NORM_PRIORITY);
     }
-
+    
     public DefaultThreadFactory(Class<?> poolType, int priority) {
         this(poolType, false, priority);
     }
-
+    
     public DefaultThreadFactory(String poolName, int priority) {
         this(poolName, false, priority);
     }
-
+    
     public DefaultThreadFactory(Class<?> poolType, boolean daemon, int priority) {
         this(toPoolName(poolType), daemon, priority);
     }
-
+    
+    /**
+     * 获取poolName，首字母变小写
+     *
+     * @param poolType
+     * @return
+     */
     public static String toPoolName(Class<?> poolType) {
         if (poolType == null) {
             throw new NullPointerException("poolType");
         }
-
+        
         String poolName = StringUtil.simpleClassName(poolType);
         switch (poolName.length()) {
             case 0:
@@ -82,7 +91,15 @@ public class DefaultThreadFactory implements ThreadFactory {
                 }
         }
     }
-
+    
+    /**
+     * 线程工厂构造方法
+     *
+     * @param poolName
+     * @param daemon
+     * @param priority
+     * @param threadGroup
+     */
     public DefaultThreadFactory(String poolName, boolean daemon, int priority, ThreadGroup threadGroup) {
         if (poolName == null) {
             throw new NullPointerException("poolName");
@@ -91,18 +108,27 @@ public class DefaultThreadFactory implements ThreadFactory {
             throw new IllegalArgumentException(
                     "priority: " + priority + " (expected: Thread.MIN_PRIORITY <= priority <= Thread.MAX_PRIORITY)");
         }
-
+        //设置线程名前缀
         prefix = poolName + '-' + poolId.incrementAndGet() + '-';
+        //设置是否是daemon线程
         this.daemon = daemon;
+        //设置优先级
         this.priority = priority;
+        //设置线程组
         this.threadGroup = threadGroup;
     }
-
+    
     public DefaultThreadFactory(String poolName, boolean daemon, int priority) {
         this(poolName, daemon, priority, System.getSecurityManager() == null ?
                 Thread.currentThread().getThreadGroup() : System.getSecurityManager().getThreadGroup());
     }
-
+    
+    /**
+     * 创建线程
+     *
+     * @param r
+     * @return
+     */
     @Override
     public Thread newThread(Runnable r) {
         Thread t = newThread(new DefaultRunnableDecorator(r), prefix + nextId.incrementAndGet());
@@ -110,7 +136,7 @@ public class DefaultThreadFactory implements ThreadFactory {
             if (t.isDaemon() != daemon) {
                 t.setDaemon(daemon);
             }
-
+            
             if (t.getPriority() != priority) {
                 t.setPriority(priority);
             }
@@ -119,19 +145,26 @@ public class DefaultThreadFactory implements ThreadFactory {
         }
         return t;
     }
-
+    
+    /**
+     * 创建线程
+     *
+     * @param r
+     * @param name
+     * @return
+     */
     protected Thread newThread(Runnable r, String name) {
         return new FastThreadLocalThread(threadGroup, r, name);
     }
-
+    
     private static final class DefaultRunnableDecorator implements Runnable {
-
+        
         private final Runnable r;
-
+        
         DefaultRunnableDecorator(Runnable r) {
             this.r = r;
         }
-
+        
         @Override
         public void run() {
             try {
