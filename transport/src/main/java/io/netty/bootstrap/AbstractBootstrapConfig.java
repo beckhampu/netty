@@ -28,6 +28,9 @@ import java.util.Map;
 
 /**
  * Exposes the configuration of an {@link AbstractBootstrap}.
+ *
+ * bootstrap配置项访问的暴露类.
+ * ServerBootstrap和Bootstrap都有对应的实现
  */
 public abstract class AbstractBootstrapConfig<B extends AbstractBootstrap<B, C>, C extends Channel> {
 
