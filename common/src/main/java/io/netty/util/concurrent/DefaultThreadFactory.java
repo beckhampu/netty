@@ -124,7 +124,7 @@ public class DefaultThreadFactory implements ThreadFactory {
     }
     
     /**
-     * 创建线程
+     * 创建线程,得到的是netty封装的FastThreadLocalThread
      *
      * @param r
      * @return
@@ -157,6 +157,9 @@ public class DefaultThreadFactory implements ThreadFactory {
         return new FastThreadLocalThread(threadGroup, r, name);
     }
     
+    /**
+     * 装饰模式，封装runnable，执行时清空FastThreadLocalThread对应的FastThreadLocal
+     */
     private static final class DefaultRunnableDecorator implements Runnable {
         
         private final Runnable r;

@@ -30,8 +30,19 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
     
+    /**
+     * EventExecutor数组
+     */
     private final EventExecutor[] children;
+    
+    /**
+     * 只读的EventExecutor数组
+     */
     private final Set<EventExecutor> readonlyChildren;
+    
+    /**
+     * 已终止的EventExecutor计数
+     */
     private final AtomicInteger terminatedChildren = new AtomicInteger();
     private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE);
     private final EventExecutorChooserFactory.EventExecutorChooser chooser;
@@ -79,11 +90,14 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
         }
         
+        //构建事件执行器数组，容量与创建NioEventLoopGroup时传入的线程数一致
         children = new EventExecutor[nThreads];
         
+        //完成EventExecutor数组的初始化
         for (int i = 0; i < nThreads; i++) {
             boolean success = false;
             try {
+                //newChild是一个抽象方法，每个子类有不同的实现。NioEventLoopGroup创建的就是NioEventLoop
                 children[i] = newChild(executor, args);
                 success = true;
             } catch (Exception e) {
@@ -111,8 +125,10 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             }
         }
         
+        //根据chooserFacoty创建chooser
         chooser = chooserFactory.newChooser(children);
         
+        //定义监听器，用于 EventExecutor 终止时的监听
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {
             @Override
             public void operationComplete(Future<Object> future) throws Exception {
@@ -122,10 +138,12 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             }
         };
         
+        //设置监听器到每个 EventExecutor 上
         for (EventExecutor e : children) {
             e.terminationFuture().addListener(terminationListener);
         }
         
+        // 创建只读的 EventExecutor 数组
         Set<EventExecutor> childrenSet = new LinkedHashSet<EventExecutor>(children.length);
         Collections.addAll(childrenSet, children);
         readonlyChildren = Collections.unmodifiableSet(childrenSet);

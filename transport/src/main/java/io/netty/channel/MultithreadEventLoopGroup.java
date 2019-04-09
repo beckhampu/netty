@@ -46,6 +46,11 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     }
 
     /**
+     * MultithreadEventLoopGroup，调用父类MultithreadEventExecutorGroup的构造方法
+     *
+     * eventloopGroup --> eventExecutorGroup
+     *
+     *
      * @see MultithreadEventExecutorGroup#MultithreadEventExecutorGroup(int, Executor, Object...)
      */
     protected MultithreadEventLoopGroup(int nThreads, Executor executor, Object... args) {

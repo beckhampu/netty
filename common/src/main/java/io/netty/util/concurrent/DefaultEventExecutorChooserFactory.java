@@ -20,6 +20,10 @@ import io.netty.util.internal.UnstableApi;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * EventExecutor的选择器工厂类，根据EventExecutor的数组长度，构建对应的选择器。
+ *
+ * EventExecutorChooser用于指定next()方法返回数组中的哪个对象。
+ *
  * Default implementation which uses simple round-robin to choose next {@link EventExecutor}.
  */
 @UnstableApi
@@ -32,13 +36,20 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
     @SuppressWarnings("unchecked")
     @Override
     public EventExecutorChooser newChooser(EventExecutor[] executors) {
+        //若数组长度是2次幂，则使用PowerOfTwoEventExecutorChooser（可使用位运算），否则使用GenericEventExecutorChooser
         if (isPowerOfTwo(executors.length)) {
             return new PowerOfTwoEventExecutorChooser(executors);
         } else {
             return new GenericEventExecutorChooser(executors);
         }
     }
-
+    
+    /**
+     * 判断是否是2的次幂
+     *
+     * @param val
+     * @return
+     */
     private static boolean isPowerOfTwo(int val) {
         return (val & -val) == val;
     }
@@ -50,7 +61,12 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
         PowerOfTwoEventExecutorChooser(EventExecutor[] executors) {
             this.executors = executors;
         }
-
+    
+        /**
+         * idx顺序增加，数组下标也顺序增加，使用位运算（-的优先级高于&）
+         *
+         * @return
+         */
         @Override
         public EventExecutor next() {
             return executors[idx.getAndIncrement() & executors.length - 1];
@@ -64,7 +80,11 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
         GenericEventExecutorChooser(EventExecutor[] executors) {
             this.executors = executors;
         }
-
+    
+        /**
+         * idx顺序增加，数组下标也顺序增加，使用求余运算
+         * @return
+         */
         @Override
         public EventExecutor next() {
             return executors[Math.abs(idx.getAndIncrement() % executors.length)];
