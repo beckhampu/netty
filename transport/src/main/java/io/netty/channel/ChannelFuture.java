@@ -161,10 +161,15 @@ import java.util.concurrent.TimeUnit;
  *     // Connection established successfully
  * }
  * </pre>
+ *
+ * 针对Future扩展了channel()方法，来绑定与此异步操作相关联的channel
+ *
  */
 public interface ChannelFuture extends Future<Void> {
 
     /**
+     * 获取相关联的channel对象
+     *
      * Returns a channel where the I/O operation associated with this
      * future takes place.
      */
@@ -207,6 +212,8 @@ public interface ChannelFuture extends Future<Void> {
      *     <li>{@link #sync()}</li>
      *     <li>{@link #syncUninterruptibly()}</li>
      * </ul>
+     *
+     * 若返回true，则不能调用上述描述方法
      */
     boolean isVoid();
 }

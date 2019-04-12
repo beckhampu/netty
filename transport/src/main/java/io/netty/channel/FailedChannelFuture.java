@@ -19,6 +19,8 @@ import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.internal.PlatformDependent;
 
 /**
+ * 出现异常的CompleteChannelFuture，isSuccess = false , cause()返回异常
+ *
  * The {@link CompleteChannelFuture} which is failed already.  It is
  * recommended to use {@link Channel#newFailedFuture(Throwable)}
  * instead of calling the constructor of this future.

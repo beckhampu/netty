@@ -18,12 +18,14 @@ package io.netty.channel;
 import io.netty.util.concurrent.EventExecutor;
 
 /**
+ * 成功执行的CompleteChannelFuture，isSuccess = true , cause() = null
+ *
  * The {@link CompleteChannelFuture} which is succeeded already.  It is
  * recommended to use {@link Channel#newSucceededFuture()} instead of
  * calling the constructor of this future.
  */
 final class SucceededChannelFuture extends CompleteChannelFuture {
-
+    
     /**
      * Creates a new instance.
      *
@@ -32,12 +34,12 @@ final class SucceededChannelFuture extends CompleteChannelFuture {
     SucceededChannelFuture(Channel channel, EventExecutor executor) {
         super(channel, executor);
     }
-
+    
     @Override
     public Throwable cause() {
         return null;
     }
-
+    
     @Override
     public boolean isSuccess() {
         return true;
