@@ -20,6 +20,8 @@ package io.netty.util;
  * possible to have multiple keys with the same name.
  *
  * @param <T>   the type of the {@link Attribute} which can be accessed via this {@link AttributeKey}.
+ *
+ * 存在值引用，可以进行原子操作，线程安全
  */
 @SuppressWarnings("UnusedDeclaration") // 'T' is used only at compile time
 public final class AttributeKey<T> extends AbstractConstant<AttributeKey<T>> {

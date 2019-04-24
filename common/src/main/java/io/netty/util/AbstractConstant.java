@@ -19,12 +19,17 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Base implementation of {@link Constant}.
+ *
+ * Constant基本抽象类，实现了基本的通用方法
  */
 public abstract class AbstractConstant<T extends AbstractConstant<T>> implements Constant<T> {
-
+    
     private static final AtomicLong uniqueIdGenerator = new AtomicLong();
     private final int id;
     private final String name;
+    /**
+     * 常量唯一识别符
+     */
     private final long uniquifier;
 
     /**

@@ -24,7 +24,10 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  * as low as possible.
  */
 public class DefaultAttributeMap implements AttributeMap {
-
+    
+    /**
+     * 构建原子更新attributes字段的更新器AtomicReferenceFieldUpdater，可通过CAS完成原子更新
+     */
     @SuppressWarnings("rawtypes")
     private static final AtomicReferenceFieldUpdater<DefaultAttributeMap, AtomicReferenceArray> updater =
             AtomicReferenceFieldUpdater.newUpdater(DefaultAttributeMap.class, AtomicReferenceArray.class, "attributes");
@@ -34,6 +37,9 @@ public class DefaultAttributeMap implements AttributeMap {
 
     // Initialize lazily to reduce memory consumption; updated by AtomicReferenceFieldUpdater above.
     @SuppressWarnings("UnusedDeclaration")
+    /**
+     * 原子操作数组保存attribute
+     */
     private volatile AtomicReferenceArray<DefaultAttribute<?>> attributes;
 
     @SuppressWarnings("unchecked")
