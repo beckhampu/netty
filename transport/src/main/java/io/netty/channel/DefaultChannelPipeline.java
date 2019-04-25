@@ -42,14 +42,26 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 /**
  * The default {@link ChannelPipeline} implementation.  It is usually created
  * by a {@link Channel} implementation when the {@link Channel} is created.
+ *
+ * ChannelPipeline的实现
  */
 public class DefaultChannelPipeline implements ChannelPipeline {
     
     static final InternalLogger logger = InternalLoggerFactory.getInstance(DefaultChannelPipeline.class);
     
+    /**
+     * AbstractChannelHandlerContext head 的 name
+     */
     private static final String HEAD_NAME = generateName0(HeadContext.class);
+    
+    /**
+     * AbstractChannelHandlerContext tail 的 name
+     */
     private static final String TAIL_NAME = generateName0(TailContext.class);
     
+    /**
+     * AbstractChannelHandlerContext#name的缓存 ，基于 ThreadLocal ，用于生成在线程中唯一的名字。
+     */
     private static final FastThreadLocal<Map<Class<?>, String>> nameCaches =
             new FastThreadLocal<Map<Class<?>, String>>() {
                 @Override
@@ -58,19 +70,52 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 }
             };
     
+    /**
+     * estimatorHandle字段的原子更新器
+     */
     private static final AtomicReferenceFieldUpdater<DefaultChannelPipeline, MessageSizeEstimator.Handle> ESTIMATOR =
             AtomicReferenceFieldUpdater.newUpdater(
                     DefaultChannelPipeline.class, MessageSizeEstimator.Handle.class, "estimatorHandle");
+    
+    /**
+     * Head节点
+     */
     final AbstractChannelHandlerContext head;
+    
+    /**
+     * Tail节点
+     */
     final AbstractChannelHandlerContext tail;
     
+    /**
+     * 1:1对应的所属channel对象
+     */
     private final Channel channel;
+    
+    /**
+     * 成功的ChannelFuture对象
+     */
     private final ChannelFuture succeededFuture;
+    
+    /**
+     * 无通知的Promise对象
+     * 有些方法入参需要Promise，所以构造一个无用的Promise对象，不能增加listener，isDone、isSuccess都返回false
+     */
     private final VoidChannelPromise voidPromise;
+    
     private final boolean touch = ResourceLeakDetector.isEnabled();
     
+    /**
+     * 添加handler时可以自定义EventExecutorGroup，见addLast()方法，
+     * 这里保存group和thread的对应关系，保证通过childExecutor()方法每次能获取到EventExecutorGroup中的同一个thread
+     */
     private Map<EventExecutorGroup, EventExecutor> childExecutors;
+    
     private volatile MessageSizeEstimator.Handle estimatorHandle;
+    
+    /**
+     * 是否首次注册
+     */
     private boolean firstRegistration = true;
     
     /**
@@ -80,23 +125,32 @@ public class DefaultChannelPipeline implements ChannelPipeline {
      * We only keep the head because it is expected that the list is used infrequently and its size is small.
      * Thus full iterations to do insertions is assumed to be a good compromised to saving memory and tail management
      * complexity.
+     *
+     * 准备添加 ChannelHandler的回调
      */
     private PendingHandlerCallback pendingHandlerCallbackHead;
     
     /**
      * Set to {@code true} once the {@link AbstractChannel} is registered.Once set to {@code true} the value will never
      * change.
+     *
+     * channel是否已注册
      */
     private boolean registered;
     
     protected DefaultChannelPipeline(Channel channel) {
+        //绑定关联channel赋值
         this.channel = ObjectUtil.checkNotNull(channel, "channel");
+        //构造成功的Future对象
         succeededFuture = new SucceededChannelFuture(channel, null);
+        //构造无用的Promise对象
         voidPromise = new VoidChannelPromise(channel, true);
         
+        //构建tail和head
         tail = new TailContext(this);
         head = new HeadContext(this);
         
+        //相互指向形成链表
         head.next = tail;
         tail.prev = head;
     }
@@ -1281,7 +1335,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         private final Unsafe unsafe;
         
         HeadContext(DefaultChannelPipeline pipeline) {
-            //head： outBound=true，inbound=false
+            // head： outBound=true，inbound=false
+            // Head是一个outBoundHandler
             super(pipeline, null, HEAD_NAME, false, true);
             unsafe = pipeline.channel().unsafe();
             setAddComplete();

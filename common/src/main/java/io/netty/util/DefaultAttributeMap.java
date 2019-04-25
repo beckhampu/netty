@@ -38,10 +38,10 @@ public class DefaultAttributeMap implements AttributeMap {
     // Initialize lazily to reduce memory consumption; updated by AtomicReferenceFieldUpdater above.
     @SuppressWarnings("UnusedDeclaration")
     /**
-     * 原子操作数组保存attribute
+     * 原子操作数组保存Attribute，通过数组+链表的方式进行保存。Attribute内部实现了链表
      */
     private volatile AtomicReferenceArray<DefaultAttribute<?>> attributes;
-
+        
     @SuppressWarnings("unchecked")
     @Override
     public <T> Attribute<T> attr(AttributeKey<T> key) {
@@ -57,9 +57,11 @@ public class DefaultAttributeMap implements AttributeMap {
                 attributes = this.attributes;
             }
         }
-
+        
+        //根据AttributeKey的ID和数据长度-1计算得到数组下标
         int i = index(key);
         DefaultAttribute<?> head = attributes.get(i);
+        //若数组当前位置为空，表示存储的第一个（即以前没有，肯定创建），构建一个空的Attribute为head，然后将根据新传入key创建的Attribute链接在head后面。
         if (head == null) {
             // No head exists yet which means we may be able to add the attribute without synchronization and just
             // use compare and set. At worst we need to fallback to synchronization and waste two allocations.
@@ -74,7 +76,8 @@ public class DefaultAttributeMap implements AttributeMap {
                 head = attributes.get(i);
             }
         }
-
+        
+        //若数组当前位置不为空，遍历链表，找到key对应的Attribute就返回，没有就链接在最后。
         synchronized (head) {
             DefaultAttribute<?> curr = head;
             for (;;) {
@@ -93,7 +96,8 @@ public class DefaultAttributeMap implements AttributeMap {
             }
         }
     }
-
+    
+    //遍历查找，判断key是否存在
     @Override
     public <T> boolean hasAttr(AttributeKey<T> key) {
         if (key == null) {

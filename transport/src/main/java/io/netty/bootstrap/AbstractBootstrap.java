@@ -328,7 +328,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * 绑定方法
      * step 1：initAndRegister() 创建并初始化channel.
-     * setp 2：
+     * setp 2：doBind0() 完成绑定
      *
      * @param localAddress
      * @return
