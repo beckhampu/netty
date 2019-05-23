@@ -73,12 +73,15 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     public final void channelRegistered(ChannelHandlerContext ctx) throws Exception {
         // Normally this method will never be called as handlerAdded(...) should call initChannel(...) and remove
         // the handler.
+        //初始化channel通道
         if (initChannel(ctx)) {
             // we called initChannel(...) so we need to call now pipeline.fireChannelRegistered() to ensure we not
             // miss an event.
+            // 重新触发 Channel Registered 事件
             ctx.pipeline().fireChannelRegistered();
         } else {
             // Called initChannel(...) before which is the expected behavior, so just forward the event.
+            // 继续向下一个节点的 Channel Registered 事件
             ctx.fireChannelRegistered();
         }
     }
@@ -110,12 +113,14 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
         if (initMap.putIfAbsent(ctx, Boolean.TRUE) == null) { // Guard against re-entrance.
             try {
+                //调用自身实现的initChannel方法，完成pipeline中handler的添加
                 initChannel((C) ctx.channel());
             } catch (Throwable cause) {
                 // Explicitly call exceptionCaught(...) as we removed the handler before calling initChannel(...).
                 // We do so to prevent multiple calls to initChannel(...).
                 exceptionCaught(ctx, cause);
             } finally {
+                //将自身从pipeline中删除
                 remove(ctx);
             }
             return true;

@@ -250,19 +250,26 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             }
 
             try {
+                // 目前有正在连接远程地址的 ChannelPromise ，则直接抛出异常，禁止同时发起多个连接。
                 if (connectPromise != null) {
                     // Already a connect in process.
                     throw new ConnectionPendingException();
                 }
-
+    
+                // 记录 Channel 是否激活
                 boolean wasActive = isActive();
+                // 执行连接远程地址
                 if (doConnect(remoteAddress, localAddress)) {
+                    //连接成功，触发pipeline中handler的ChannelActive方法
                     fulfillConnectPromise(promise, wasActive);
                 } else {
+                    // 记录 connectPromise
                     connectPromise = promise;
+                    // 记录 requestedRemoteAddress
                     requestedRemoteAddress = remoteAddress;
 
                     // Schedule connect timeout.
+                    // 使用 EventLoop 发起定时任务，监听连接远程地址超时。若连接超时，则回调通知 connectPromise 超时异常。
                     int connectTimeoutMillis = config().getConnectTimeoutMillis();
                     if (connectTimeoutMillis > 0) {
                         connectTimeoutFuture = eventLoop().schedule(new Runnable() {
@@ -277,7 +284,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                             }
                         }, connectTimeoutMillis, TimeUnit.MILLISECONDS);
                     }
-
+    
+                    // 添加监听器，监听连接远程地址取消。
                     promise.addListener(new ChannelFutureListener() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
@@ -312,6 +320,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
             // Regardless if the connection attempt was cancelled, channelActive() event should be triggered,
             // because what happened is what happened.
+            // 若 Channel 是新激活的，触发通知 Channel 已激活的事件
             if (!wasActive && active) {
                 pipeline().fireChannelActive();
             }
@@ -390,7 +399,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         for (;;) {
             try {
                 //调用jdk方法，将jdk的ServerSocketChannel注册到reactor线程的多路复用器Selector上
-                //并将netty的channle保存在jdk的channle上
+                //并将netty的channle保存在jdk的channle的attachment上
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

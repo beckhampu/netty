@@ -77,6 +77,7 @@ public final class SocketUtils {
     public static boolean connect(final SocketChannel socketChannel, final SocketAddress remoteAddress)
             throws IOException {
         try {
+            //特权方法调用jdk的sockentchannel的connect方法
             return AccessController.doPrivileged(new PrivilegedExceptionAction<Boolean>() {
                 @Override
                 public Boolean run() throws IOException {

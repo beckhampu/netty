@@ -308,6 +308,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         try {
             boolean connected = SocketUtils.connect(javaChannel(), remoteAddress);
             if (!connected) {
+                // 若连接没有立即完成，则关注连接( OP_CONNECT )事件
                 selectionKey().interestOps(SelectionKey.OP_CONNECT);
             }
             success = true;

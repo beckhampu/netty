@@ -50,6 +50,8 @@ public interface Promise<V> extends Future<V> {
      * listeners.
      *
      * If it is success or failed already it will throw an {@link IllegalStateException}.
+     *
+     * 设置异步操作的执行结果为失败。若已成功或失败，则会抛出异常。
      */
     Promise<V> setFailure(Throwable cause);
 
@@ -60,6 +62,8 @@ public interface Promise<V> extends Future<V> {
      * @return {@code true} if and only if successfully marked this future as
      *         a failure. Otherwise {@code false} because this future is
      *         already marked as either a success or a failure.
+     *
+     * 设置异步操作的执行结果为失败。不会抛出异常，直接返回boolean结果。
      */
     boolean tryFailure(Throwable cause);
 

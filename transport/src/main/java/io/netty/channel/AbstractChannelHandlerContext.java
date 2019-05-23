@@ -523,7 +523,8 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
             // cancelled
             return promise;
         }
-
+        
+        //从tail开始查找上一个outbound的handler,head的就是outbound的handler，实际就是调用head的connect
         final AbstractChannelHandlerContext next = findContextOutbound();
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
