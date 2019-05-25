@@ -262,16 +262,21 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            //得到已连接的客户端socketChannel
             final Channel child = (Channel) msg;
             
+            //将启动配置childHandler添加到客户端channel的pipeline中
             child.pipeline().addLast(childHandler);
             
+            //设置客户端options
             setChannelOptions(child, childOptions, logger);
             
+            //设置客户端attrs
             for (Entry<AttributeKey<?>, Object> e : childAttrs) {
                 child.attr((AttributeKey<Object>) e.getKey()).set(e.getValue());
             }
             
+            //worker的NioEventLoopGroup注册客户端channel
             try {
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override

@@ -269,22 +269,28 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
         synchronized (this) {
+            // 检查是否有重复 handler
             checkMultiplicity(handler);
             
-            //创建DefaultChannelHandlerContext，
+            //创建DefaultChannelHandlerContext，将handler包装成ChannelHandlerContext放入pipeline中
             newCtx = newContext(group, filterName(name, handler), handler);
             
+            //添加到tail的前一个
             addLast0(newCtx);
             
             // If the registered is false it means that the channel was not registered on an eventloop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
+            // pipeline 暂未注册，添加回调。再注册完成后，执行回调。详细解析，见 {@link #invokeHandlerAddedIfNeeded} 方法。
+            // 添加的ChannelInitializer回进入到这里,通过添加PendingHandlerCallback，后续在invokeHandlerAddedIfNeeded中调用handlerAdd方法
             if (!registered) {
                 newCtx.setAddPending();
+                //添加回调，在channel注册完成后调用invokeHandlerAddedIfNeeded时执行PendingHandlerCallback
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
             
+            // ChannelInitializer#initChannel中添加的handler会进入到这里，保证在channel的add方法可以延续
             EventExecutor executor = newCtx.executor();
             if (!executor.inEventLoop()) {
                 newCtx.setAddPending();
@@ -297,6 +303,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 return this;
             }
         }
+        // 回调 ChannelHandler added 事件
         callHandlerAdded0(newCtx);
         return this;
     }
@@ -367,8 +374,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     
     private String filterName(String name, ChannelHandler handler) {
         if (name == null) {
+            //如果没有设置名称，则根据handler类名生成一个名称
             return generateName(handler);
         }
+        //检查是否有重复名字
         checkDuplicateName(name);
         return name;
     }
@@ -662,11 +671,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private static void checkMultiplicity(ChannelHandler handler) {
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
+            // 若已经添加，并且未使用 @Sharable 注解，则抛出异常
             if (!h.isSharable() && h.added) {
                 throw new ChannelPipelineException(
                         h.getClass().getName() +
                                 " is not a @Sharable handler, so can't be added or removed multiple times.");
             }
+            //标记已添加
             h.added = true;
         }
     }
@@ -717,12 +728,17 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
     
+    /**
+     * channel注册时调用
+     */
     final void invokeHandlerAddedIfNeeded() {
         assert channel.eventLoop().inEventLoop();
+        // 仅有首次注册时有效
         if (firstRegistration) {
             firstRegistration = false;
             // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
             // that were added before the registration was done.
+            // 执行在 PendingHandlerCallback 中的 ChannelHandler 添加完成( added )事件
             callHandlerAddedForAllHandlers();
         }
     }

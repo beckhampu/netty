@@ -260,7 +260,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 boolean wasActive = isActive();
                 // 执行连接远程地址
                 if (doConnect(remoteAddress, localAddress)) {
-                    //连接成功，触发pipeline中handler的ChannelActive方法
+                    //连接成功，触发pipeline中handler的ChannelActive方法，这里就可是inbound事件的传递了
                     fulfillConnectPromise(promise, wasActive);
                 } else {
                     // 记录 connectPromise

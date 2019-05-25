@@ -73,7 +73,11 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     public final void channelRegistered(ChannelHandlerContext ctx) throws Exception {
         // Normally this method will never be called as handlerAdded(...) should call initChannel(...) and remove
         // the handler.
-        //初始化channel通道
+        //一般此方法调用不到，因为在channel的register中，先调用pipeline.invokeHandlerAddedIfNeeded(),执行handlerAdded
+        // 然后调用pipeline.fireChannelRegistered()，执行channelRegistered
+        // handlerAdded中也执行了initChannel，执行后将自己从pipeline中删除，所以channelRegistered调用不到
+        
+        // 初始化channel通道
         if (initChannel(ctx)) {
             // we called initChannel(...) so we need to call now pipeline.fireChannelRegistered() to ensure we not
             // miss an event.
