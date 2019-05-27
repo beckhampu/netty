@@ -114,6 +114,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     }
 
     final ScheduledFutureTask<?> peekScheduledTask() {
+        // scheduledTaskQueue是PriorityQueue，优先级队列，从里面获取最快将要执行的一个task
         Queue<ScheduledFutureTask<?>> scheduledTaskQueue = this.scheduledTaskQueue;
         if (scheduledTaskQueue == null) {
             return null;
