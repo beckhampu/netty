@@ -705,7 +705,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             buffer.close(cause, true);
             pipeline.fireUserEventTriggered(ChannelOutputShutdownEvent.INSTANCE);
         }
-
+    
+        /**
+         * Channel关闭操作
+         *
+         */
         private void close(final ChannelPromise promise, final Throwable cause,
                            final ClosedChannelException closeCause, final boolean notify) {
             if (!promise.setUncancellable()) {
@@ -729,11 +733,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             closeInitiated = true;
-
+            
+            //将发送队列清空
             final boolean wasActive = isActive();
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
+            //将发送队列清空，不在允许发送新的消息
             this.outboundBuffer = null; // Disallow adding any messages and flushes to outboundBuffer.
+            //执行预处关闭操作，即channel中key的cancel操作
             Executor closeExecutor = prepareToClose();
+            //使用GlobalEventExecutor完成jdk channel的close操作
             if (closeExecutor != null) {
                 closeExecutor.execute(new Runnable() {
                     @Override
@@ -768,6 +776,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         outboundBuffer.close(closeCause);
                     }
                 }
+                // 判断是否有消息正在flush发送，如果有则将去除注册的操作封装到eventLoop的task中去执行
                 if (inFlush0) {
                     invokeLater(new Runnable() {
                         @Override
@@ -776,6 +785,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         }
                     });
                 } else {
+                    // 会触发pipeline的fireChannelInactive和fireChannelUnregistered方法
                     fireChannelInactiveAndDeregister(wasActive);
                 }
             }

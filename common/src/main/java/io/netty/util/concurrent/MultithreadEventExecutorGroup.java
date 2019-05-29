@@ -177,8 +177,13 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      */
     protected abstract EventExecutor newChild(Executor executor, Object... args) throws Exception;
     
+    /**
+     * 优雅退出的执行方法
+     *
+     */
     @Override
     public Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit) {
+        //遍历所有的EventLoop，然后调用每个的shutdownGracefully()方法
         for (EventExecutor l : children) {
             l.shutdownGracefully(quietPeriod, timeout, unit);
         }

@@ -555,6 +555,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     @Override
     public Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit) {
+        //参数检查
         if (quietPeriod < 0) {
             throw new IllegalArgumentException("quietPeriod: " + quietPeriod + " (expected >= 0)");
         }
@@ -565,7 +566,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (unit == null) {
             throw new NullPointerException("unit");
         }
-
+        
+        //如果正在退出，则返回退出的future
         if (isShuttingDown()) {
             return terminationFuture();
         }
@@ -581,9 +583,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             wakeup = true;
             oldState = state;
             if (inEventLoop) {
+                //如果是此eventlLoop线程发起的，则直接修改状态为ST_SHUTTING_DOWN
                 newState = ST_SHUTTING_DOWN;
             } else {
                 switch (oldState) {
+                    //若状态为ST_NOT_STARTED、ST_STARTED，修改装为ST_SHUTTING_DOWN
                     case ST_NOT_STARTED:
                     case ST_STARTED:
                         newState = ST_SHUTTING_DOWN;
@@ -593,6 +597,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                         wakeup = false;
                 }
             }
+            //通过cas修改状态成功，则退出for循环
             if (STATE_UPDATER.compareAndSet(this, oldState, newState)) {
                 break;
             }
@@ -687,13 +692,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (!inEventLoop()) {
             throw new IllegalStateException("must be invoked from an event loop");
         }
-
+        
+        // 取消scheduled任务
         cancelScheduledTasks();
 
         if (gracefulShutdownStartTime == 0) {
             gracefulShutdownStartTime = ScheduledFutureTask.nanoTime();
         }
-
+        
+        // 执行taskQueue中的任务，执行注册到NioEventLoop上的shutdownHook
         if (runAllTasks() || runShutdownHooks()) {
             if (isShutdown()) {
                 // Executor shut down - no new tasks anymore.
@@ -711,11 +718,13 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
 
         final long nanoTime = ScheduledFutureTask.nanoTime();
-
+        
+        // 如果超时直接退出
         if (isShutdown() || nanoTime - gracefulShutdownStartTime > gracefulShutdownTimeout) {
             return true;
         }
-
+        
+        // 如果没超时，每隔100秒检查是否有新人加入
         if (nanoTime - lastExecutionTime <= gracefulShutdownQuietPeriod) {
             // Check if any tasks were added to the queue every 100ms.
             // TODO: Change the behavior of takeTask() so that it returns on timeout.
@@ -898,7 +907,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 } catch (Throwable t) {
                     logger.warn("Unexpected exception from an event executor: ", t);
                 } finally {
-                    //关闭处理
+                    //关闭处理，更新状态
                     for (;;) {
                         int oldState = state;
                         if (oldState >= ST_SHUTTING_DOWN || STATE_UPDATER.compareAndSet(
