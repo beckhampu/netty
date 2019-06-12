@@ -58,7 +58,10 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
     private final class NioMessageUnsafe extends AbstractNioUnsafe {
 
         private final List<Object> readBuf = new ArrayList<Object>();
-
+    
+        /**
+         * 对应NioServerSocketChannel的unsafe，read方法读取到的是NioSocketChannel
+         */
         @Override
         public void read() {
             assert eventLoop().inEventLoop();
@@ -72,6 +75,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        //读取数据，这里会读入一个NioSocketChannel
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;

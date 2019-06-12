@@ -40,6 +40,8 @@ import static io.netty.util.internal.MathUtil.isOutOfBounds;
 
 /**
  * A skeletal implementation of a buffer.
+ *
+ * ByteBuf的一个骨架实现
  */
 public abstract class AbstractByteBuf extends ByteBuf {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractByteBuf.class);
@@ -265,13 +267,17 @@ public abstract class AbstractByteBuf extends ByteBuf {
         ensureWritable0(minWritableBytes);
         return this;
     }
-
+    
+    //保存可写方法，若不够写，则进行扩容
     final void ensureWritable0(int minWritableBytes) {
+        // 检查是否可访问
         ensureAccessible();
+        // 目前容量可写，直接返回
         if (minWritableBytes <= writableBytes()) {
             return;
         }
-
+    
+        // 超过最大上限，抛出 IndexOutOfBoundsException 异常
         if (minWritableBytes > maxCapacity - writerIndex) {
             throw new IndexOutOfBoundsException(String.format(
                     "writerIndex(%d) + minWritableBytes(%d) exceeds maxCapacity(%d): %s",
@@ -279,32 +285,42 @@ public abstract class AbstractByteBuf extends ByteBuf {
         }
 
         // Normalize the current capacity to the power of 2.
+        // 计算新的容量。默认情况下，2 倍扩容，并且不超过最大容量上限。
         int newCapacity = alloc().calculateNewCapacity(writerIndex + minWritableBytes, maxCapacity);
 
         // Adjust to the new capacity.
+        // 设置新的容量大小
         capacity(newCapacity);
     }
 
     @Override
     public int ensureWritable(int minWritableBytes, boolean force) {
+        // 检查是否可访问
         ensureAccessible();
+        // minWritableBytes检查
         if (minWritableBytes < 0) {
             throw new IllegalArgumentException(String.format(
                     "minWritableBytes: %d (expected: >= 0)", minWritableBytes));
         }
-
+    
+        // 目前容量可写，且capacity没有改变，直接返回0
         if (minWritableBytes <= writableBytes()) {
             return 0;
         }
 
         final int maxCapacity = maxCapacity();
         final int writerIndex = writerIndex();
+        
+        //若超过最大上限
         if (minWritableBytes > maxCapacity - writerIndex) {
+            //若当前不强制设置capacity，且capacity已等于maxCapacity，则返回1
             if (!force || capacity() == maxCapacity) {
+                // 若容量不够，没有改变capacity为maxCapacity，返回1
                 return 1;
             }
-
+            // 设置为最大容量，返回3
             capacity(maxCapacity);
+            // 若容量不够，改变capacity为maxCapacity，返回3
             return 3;
         }
 
@@ -313,6 +329,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
         // Adjust to the new capacity.
         capacity(newCapacity);
+        //容量够，进行了扩容，capacity进行了改变，返回2
         return 2;
     }
 

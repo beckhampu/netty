@@ -23,17 +23,40 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
-
+    
+    // Recycler 处理器，用于回收对象
     private final Recycler.Handle<PooledByteBuf<T>> recyclerHandle;
-
+    
+    // chunk对象
     protected PoolChunk<T> chunk;
+    
+    // 从 Chunk 对象中分配的内存块所处的位置
     protected long handle;
+    
+    // 内存空间。具体什么样的数据，通过子类设置泛型。
     protected T memory;
+    
+    // memory开始位置
     protected int offset;
+    
+    //容量， capacity()返回length
     protected int length;
+    
+    /**
+     * 占用memory的大小
+     * maxLength 属性，不是表示最大容量。maxCapacity 属性，才是真正表示最大容量
+     * maxLength表示占用 memory 的最大容量(而不是 PooledByteBuf对象的最大容量 )。
+     * 在写入数据超过 maxLength容量时，会进行扩容，但是容量的上限，为 maxCapacity
+     */
     int maxLength;
+    
+    // 用于内存分配的线程缓存
     PoolThreadCache cache;
+    
+    // 临时 ByteBuff 对象
     private ByteBuffer tmpNioBuf;
+    
+    // ByteBuf 分配器
     private ByteBufAllocator allocator;
 
     @SuppressWarnings("unchecked")
@@ -67,11 +90,17 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
 
     /**
      * Method must be called before reuse this {@link PooledByteBufAllocator}
+     *
+     * 重用PooledByteBuf 对象时，需要调用该方法，重置属性
      */
     final void reuse(int maxCapacity) {
+        // 设置最大容量
         maxCapacity(maxCapacity);
+        // 设置引用次数为1
         setRefCnt(1);
+        //设置读写index为0
         setIndex0(0, 0);
+        // 设置读写的标记mark为0
         discardMarks();
     }
 
@@ -82,6 +111,7 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
 
     @Override
     public final ByteBuf capacity(int newCapacity) {
+        // 检查要设置的newCapacity，不能超过maxCapacity
         checkNewCapacity(newCapacity);
 
         // If the request capacity does not require reallocation, just update the length of the memory.
