@@ -142,6 +142,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
     abstract boolean isDirect();
 
     PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
+        // 根据是否支持unsafe，创建 对应的 PooledByteBuf 对象
         PooledByteBuf<T> buf = newByteBuf(maxCapacity);
         allocate(cache, buf, reqCapacity);
         return buf;
@@ -172,6 +173,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
     }
 
     private void allocate(PoolThreadCache cache, PooledByteBuf<T> buf, final int reqCapacity) {
+        // 标准化请求分配的容量
         final int normCapacity = normalizeCapacity(reqCapacity);
         if (isTinyOrSmall(normCapacity)) { // capacity < pageSize
             int tableIdx;
@@ -334,11 +336,13 @@ abstract class PoolArena<T> implements PoolArenaMetric {
         if (reqCapacity < 0) {
             throw new IllegalArgumentException("capacity: " + reqCapacity + " (expected: 0+)");
         }
-
+    
+        // Huge 内存类型，直接使用 reqCapacity ，无需进行标准化。
         if (reqCapacity >= chunkSize) {
             return directMemoryCacheAlignment == 0 ? reqCapacity : alignCapacity(reqCapacity);
         }
-
+    
+        // 非 tiny 内存类型
         if (!isTiny(reqCapacity)) { // >= 512
             // Doubled
 

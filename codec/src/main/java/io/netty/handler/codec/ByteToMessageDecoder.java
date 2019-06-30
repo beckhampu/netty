@@ -70,12 +70,16 @@ import java.util.List;
 public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter {
 
     /**
+     * MERGE_CUMULATOR累加器，把所有读入的数据放到一个ByteBuf中.
+     *
      * Cumulate {@link ByteBuf}s by merge them into one {@link ByteBuf}'s, using memory copies.
      */
     public static final Cumulator MERGE_CUMULATOR = new Cumulator() {
         @Override
         public ByteBuf cumulate(ByteBufAllocator alloc, ByteBuf cumulation, ByteBuf in) {
             final ByteBuf buffer;
+            
+            // 如果cumulation的容量不够写入in，则需要进行扩容
             if (cumulation.writerIndex() > cumulation.maxCapacity() - in.readableBytes()
                     || cumulation.refCnt() > 1 || cumulation.isReadOnly()) {
                 // Expand cumulation (by replace it) when either there is not more room in the buffer
@@ -89,6 +93,7 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
             } else {
                 buffer = cumulation;
             }
+            //读入in
             buffer.writeBytes(in);
             in.release();
             return buffer;
@@ -96,6 +101,10 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
     };
 
     /**
+     * COMPOSITE_CUMULATOR，新新读入的bytebuf累加到一个CompositeByteBuf中，相比较MERGE_CUMULATOR：
+     * 1、不需要内存拷贝
+     * 2、CompositeByteBuf使用了一个复杂索引，因为维护复杂索引，所以某些使用场景下，慢于 MERGE_CUMULATOR
+     *
      * Cumulate {@link ByteBuf}s by add them to a {@link CompositeByteBuf} and so do no memory copy whenever possible.
      * Be aware that {@link CompositeByteBuf} use a more complex indexing implementation so depending on your use-case
      * and the decoder implementation this may be slower then just use the {@link #MERGE_CUMULATOR}.
@@ -512,9 +521,13 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
     }
 
     static ByteBuf expandCumulation(ByteBufAllocator alloc, ByteBuf cumulation, int readable) {
+        // 记录老的 ByteBuf 对象
         ByteBuf oldCumulation = cumulation;
+        // 分配新的 ByteBuf 对象
         cumulation = alloc.buffer(oldCumulation.readableBytes() + readable);
+        // 将老的数据，写入到新的 ByteBuf 对象
         cumulation.writeBytes(oldCumulation);
+        // 释放老的 ByteBuf 对象
         oldCumulation.release();
         return cumulation;
     }
