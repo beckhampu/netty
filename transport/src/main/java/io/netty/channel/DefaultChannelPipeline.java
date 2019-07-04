@@ -1441,8 +1441,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            // inbound向下传播调用channelActive事件
             ctx.fireChannelActive();
-            
+            // 启动读事件，pipeline传播outbound事件，从tail开始传播，到head。最终在head中处理
             readIfIsAutoRead();
         }
         
