@@ -888,12 +888,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 close(voidPromise());
             }
         }
-
+        
+        
         @Override
         public final void write(Object msg, ChannelPromise promise) {
             assertEventLoop();
-
+            
+            //内存缓冲队列，缓冲写入的bytebuf
             ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
+            
+            //缓冲队列为空，一般是channel已关，释放msf, promise通知异常
             if (outboundBuffer == null) {
                 // If the outboundBuffer is null we know the channel was closed and so
                 // need to fail the future right away. If it is not null the handling of the rest
@@ -907,7 +911,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             int size;
             try {
+                // 过滤消息，将Bytebuf进行Direct化，见AbstractNioByteChannel的实现
                 msg = filterOutboundMessage(msg);
+                
+                //计算消息的大小
                 size = pipeline.estimatorHandle().size(msg);
                 if (size < 0) {
                     size = 0;
@@ -917,38 +924,46 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 ReferenceCountUtil.release(msg);
                 return;
             }
-
+            
+            //写入消息度内存缓冲队列
             outboundBuffer.addMessage(msg, size, promise);
         }
 
         @Override
         public final void flush() {
             assertEventLoop();
-
+            
+            // 内存缓冲队列为空，一般channel已关闭，直接返回
             ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             if (outboundBuffer == null) {
                 return;
             }
-
+            
+            // 调整缓冲队列的刷新标志并设置写状态
             outboundBuffer.addFlush();
+            // 执行flush
             flush0();
         }
 
         @SuppressWarnings("deprecation")
         protected void flush0() {
+            //如果正在flush中，则直接返回
             if (inFlush0) {
                 // Avoid re-entrance
                 return;
             }
-
+            
+            //内存缓冲队列为空，无数据flush，直接返回
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             if (outboundBuffer == null || outboundBuffer.isEmpty()) {
                 return;
             }
-
+            
+            // 标记正在flush
             inFlush0 = true;
 
             // Mark all pending write requests as failure if the channel is inactive.
+            // 若channel未激活，flush失败
             if (!isActive()) {
                 try {
                     if (isOpen()) {
@@ -964,6 +979,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
+                //执行真正的写数据
                 doWrite(outboundBuffer);
             } catch (Throwable t) {
                 if (t instanceof IOException && config().isAutoClose()) {

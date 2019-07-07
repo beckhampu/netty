@@ -55,6 +55,9 @@ public final class ChannelOutboundBuffer {
     //  - 2 int fields
     //  - 1 boolean field
     //  - padding
+    /**
+     * Entry对象自身占用内存的大小
+     */
     static final int CHANNEL_OUTBOUND_BUFFER_ENTRY_OVERHEAD =
             SystemPropertyUtil.getInt("io.netty.transport.outboundBufferEntrySizeOverhead", 96);
 
@@ -72,10 +75,19 @@ public final class ChannelOutboundBuffer {
     // Entry(flushedEntry) --> ... Entry(unflushedEntry) --> ... Entry(tailEntry)
     //
     // The Entry that is the first in the linked-list structure that was flushed
+    /**
+     * 排在最前面，指向内存队列中第一个已被flush的entry
+     */
     private Entry flushedEntry;
     // The Entry which is the first unflushed in the linked-list structure
+    /**
+     * 排在中间，指向队列中第一个未被flush的entry
+     */
     private Entry unflushedEntry;
     // The Entry which represents the tail of the buffer
+    /**
+     * 排在最后，队列尾指针
+     */
     private Entry tailEntry;
     // The number of flushed entries that are not written yet
     private int flushed;
@@ -108,21 +120,27 @@ public final class ChannelOutboundBuffer {
      * the message was written.
      */
     public void addMessage(Object msg, int size, ChannelPromise promise) {
+        // 将msg封装为Entry对象
         Entry entry = Entry.newInstance(msg, size, total(msg), promise);
+        //调整ChannelOutBoundBuffer内部的Entry指针位置
         if (tailEntry == null) {
+            //尾指针为空，第一次插入，已清空指针为null，tail指向新加入的entry
             flushedEntry = null;
             tailEntry = entry;
         } else {
+            //尾指针不为空，则将新加入的entry放到队列尾部
             Entry tail = tailEntry;
             tail.next = entry;
             tailEntry = entry;
         }
         if (unflushedEntry == null) {
+            //若unflushedEntry为空，则将unflushedEntry指向新加入的entry
             unflushedEntry = entry;
         }
 
         // increment pending bytes after adding message to the unflushed arrays.
         // See https://github.com/netty/netty/issues/1619
+        // 计算缓冲队列大小
         incrementPendingOutboundBytes(entry.pendingSize, false);
     }
 
@@ -137,21 +155,26 @@ public final class ChannelOutboundBuffer {
         // See https://github.com/netty/netty/issues/2577
         Entry entry = unflushedEntry;
         if (entry != null) {
+            //若flushedEntry为空，则直接设置为flushedEntry，标记第一个flush的entry
             if (flushedEntry == null) {
                 // there is no flushedEntry yet, so start with the entry
                 flushedEntry = entry;
             }
+            
+            //循环计算flush的数量，并设置每个entry对应的promise不可取消。
             do {
                 flushed ++;
                 if (!entry.promise.setUncancellable()) {
                     // Was cancelled so make sure we free up memory and notify about the freed bytes
                     int pending = entry.cancel();
+                    //减少缓冲队列的totalpending计数的size大小，若小于低水位阈值，则设置写状态
                     decrementPendingOutboundBytes(pending, false, true);
                 }
                 entry = entry.next;
             } while (entry != null);
 
             // All flushed so reset unflushedEntry
+            //设置unflushedEntry为空，标记缓冲队列都需要flush
             unflushedEntry = null;
         }
     }
@@ -168,8 +191,9 @@ public final class ChannelOutboundBuffer {
         if (size == 0) {
             return;
         }
-
+        //计算新写入msg后的缓冲队列大小
         long newWriteBufferSize = TOTAL_PENDING_SIZE_UPDATER.addAndGet(this, size);
+        //若大于设置的水位，默认64K，则设置channel不可写，则传播不可写事件
         if (newWriteBufferSize > channel.config().getWriteBufferHighWaterMark()) {
             setUnwritable(invokeLater);
         }

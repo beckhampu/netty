@@ -44,8 +44,15 @@ import io.netty.util.internal.TypeParameterMatcher;
  * </pre>
  */
 public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdapter {
-
+    
+    /**
+     * 类型匹配器
+     */
     private final TypeParameterMatcher matcher;
+    
+    /**
+     * 是否Dirct内存优先
+     */
     private final boolean preferDirect;
 
     /**
@@ -70,6 +77,7 @@ public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdap
      *                              {@link ByteBuf}, which is backed by an byte array.
      */
     protected MessageToByteEncoder(boolean preferDirect) {
+        //类型匹配器初始化
         matcher = TypeParameterMatcher.find(this, MessageToByteEncoder.class, "I");
         this.preferDirect = preferDirect;
     }
@@ -99,24 +107,31 @@ public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdap
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         ByteBuf buf = null;
         try {
+            //判断msg的类型是否匹配
             if (acceptOutboundMessage(msg)) {
                 @SuppressWarnings("unchecked")
                 I cast = (I) msg;
+                // 申请buf
                 buf = allocateBuffer(ctx, cast, preferDirect);
                 try {
+                    // 调用编码方法（需子类实现此方法），编码后结果写入到buf中
                     encode(ctx, cast, buf);
                 } finally {
+                    //释放msg
                     ReferenceCountUtil.release(cast);
                 }
 
                 if (buf.isReadable()) {
+                    //buf可读，有编码数据，则向下传播write事件
                     ctx.write(buf, promise);
                 } else {
+                    //没有编码到数据，释放buf
                     buf.release();
                     ctx.write(Unpooled.EMPTY_BUFFER, promise);
                 }
                 buf = null;
             } else {
+                //类型不匹配，无需encode，向下传播write事件
                 ctx.write(msg, promise);
             }
         } catch (EncoderException e) {
@@ -125,6 +140,7 @@ public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdap
             throw new EncoderException(e);
         } finally {
             if (buf != null) {
+                // 出现exception，释放buf
                 buf.release();
             }
         }

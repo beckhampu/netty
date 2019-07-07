@@ -347,7 +347,9 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     protected int doWriteBytes(ByteBuf buf) throws Exception {
+        //获取bytebuf的可读数据
         final int expectedWrittenBytes = buf.readableBytes();
+        // 写入到jdk的channel中
         return buf.readBytes(javaChannel(), expectedWrittenBytes);
     }
 

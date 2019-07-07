@@ -162,7 +162,9 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         int writeSpinCount = -1;
 
         boolean setOpWrite = false;
+        //循环写
         for (;;) {
+            // 获取第一个flushedEntry的msg
             Object msg = in.current();
             if (msg == null) {
                 // Wrote all messages.
@@ -170,28 +172,39 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 // Directly return here so incompleteWrite(...) is not called.
                 return;
             }
-
+            
             if (msg instanceof ByteBuf) {
                 ByteBuf buf = (ByteBuf) msg;
                 int readableBytes = buf.readableBytes();
                 if (readableBytes == 0) {
+                    // 可写的数据为0，则移除当前entry，继续遍历
                     in.remove();
                     continue;
                 }
 
                 boolean done = false;
                 long flushedAmount = 0;
+                
+                // 获取自旋次数，默认16。使用自旋写，可提高吞吐量
                 if (writeSpinCount == -1) {
                     writeSpinCount = config().getWriteSpinCount();
                 }
+                
+                //自旋循环
                 for (int i = writeSpinCount - 1; i >= 0; i --) {
+                    //写入到jdk的channel中
                     int localFlushedAmount = doWriteBytes(buf);
+                    
+                    //写入的字节为0，表示不可写，退出循环
                     if (localFlushedAmount == 0) {
+                        //设置setOpWrite标志
                         setOpWrite = true;
                         break;
                     }
 
                     flushedAmount += localFlushedAmount;
+                    
+                    //buf不可读，已全部写完，则直接break
                     if (!buf.isReadable()) {
                         done = true;
                         break;
@@ -201,6 +214,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 in.progress(flushedAmount);
 
                 if (done) {
+                    // 当前entry的Bytebuf全部写完，则移除当前entry，继续遍历
                     in.remove();
                 } else {
                     // Break the loop and so incompleteWrite(...) is called.
@@ -244,17 +258,21 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 throw new Error();
             }
         }
+        
+        // 若出现了jdk的channel不可写，则检查下selectionkey的write事件。否则设置flush任务，完成写事件
         incompleteWrite(setOpWrite);
     }
 
     @Override
     protected final Object filterOutboundMessage(Object msg) {
+        
         if (msg instanceof ByteBuf) {
+            //如果是Direct的，则直接返回
             ByteBuf buf = (ByteBuf) msg;
             if (buf.isDirect()) {
                 return msg;
             }
-
+            // 若不是Direct的，则包装为Direct的
             return newDirectBuffer(buf);
         }
 

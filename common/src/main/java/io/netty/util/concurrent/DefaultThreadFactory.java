@@ -29,9 +29,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DefaultThreadFactory implements ThreadFactory {
     
-    //自增的线程池Id
+    //自增的线程池Id(static final)
     private static final AtomicInteger poolId = new AtomicInteger();
     
+    //自增的线程Id
     private final AtomicInteger nextId = new AtomicInteger();
     private final String prefix;
     private final boolean daemon;
