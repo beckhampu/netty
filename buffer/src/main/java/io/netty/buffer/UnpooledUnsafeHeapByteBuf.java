@@ -26,6 +26,8 @@ class UnpooledUnsafeHeapByteBuf extends UnpooledHeapByteBuf {
      * @param maxCapacity the max capacity of the underlying byte array
      */
     UnpooledUnsafeHeapByteBuf(ByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
+        // 创建一个UnpooledUnsafeHeapByteBuf，实际就是创建一个UnpooledHeapByteBuf
+        // 两者区别就是对数组的操作不同，一个通过index，一个使用unsafe
         super(alloc, initialCapacity, maxCapacity);
     }
 

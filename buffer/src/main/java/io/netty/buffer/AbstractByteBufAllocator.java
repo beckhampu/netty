@@ -23,6 +23,8 @@ import io.netty.util.internal.StringUtil;
 
 /**
  * Skeletal {@link ByteBufAllocator} implementation to extend.
+ *
+ * ByteBufAllocator的骨架抽象实现
  */
 public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     static final int DEFAULT_INITIAL_CAPACITY = 256;
@@ -97,9 +99,11 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf buffer() {
+        // 默认direct，分配Direct Buffer
         if (directByDefault) {
             return directBuffer();
         }
+        // 分配Heap Buffer
         return heapBuffer();
     }
 
@@ -155,10 +159,14 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf heapBuffer(int initialCapacity, int maxCapacity) {
+        // 若初始容量和最大容量为0，则分配一个空实现EmptyByteBuf
         if (initialCapacity == 0 && maxCapacity == 0) {
             return emptyBuf;
         }
+    
+        //参数校验，initialCapacity>=0, macCapacity>initialCapacity
         validate(initialCapacity, maxCapacity);
+        // 创建一个Heap Buffer,具体由相关子类实现（UnPooled or Pooled）
         return newHeapBuffer(initialCapacity, maxCapacity);
     }
 
@@ -174,10 +182,14 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf directBuffer(int initialCapacity, int maxCapacity) {
+        // 若初始容量和最大容量为0，则分配一个空实现EmptyByteBuf
         if (initialCapacity == 0 && maxCapacity == 0) {
             return emptyBuf;
         }
+        
+        //参数校验，initialCapacity>=0, macCapacity>initialCapacity
         validate(initialCapacity, maxCapacity);
+        // 创建一个Direct Buffer,具体由相关子类实现（UnPooled or Pooled）
         return newDirectBuffer(initialCapacity, maxCapacity);
     }
 

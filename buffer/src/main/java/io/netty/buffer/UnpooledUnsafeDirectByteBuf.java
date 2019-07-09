@@ -63,8 +63,10 @@ public class UnpooledUnsafeDirectByteBuf extends AbstractReferenceCountedByteBuf
             throw new IllegalArgumentException(String.format(
                     "initialCapacity(%d) > maxCapacity(%d)", initialCapacity, maxCapacity));
         }
-
+        
+        // alloc赋值
         this.alloc = alloc;
+        // 使用jdk的ByteBuffer创建Direct buffer并设置buffer和memoryAddress
         setByteBuffer(allocateDirect(initialCapacity), false);
     }
 

@@ -55,9 +55,12 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
             throw new IllegalArgumentException(String.format(
                     "initialCapacity(%d) > maxCapacity(%d)", initialCapacity, maxCapacity));
         }
-
+        
+        // alloc赋值
         this.alloc = alloc;
+        // 根据initialCapacity创建byte数组并设置（Heap ByteBuffer的底层内存实现）
         setArray(allocateArray(initialCapacity));
+        // 设置读写游标为0
         setIndex(0, 0);
     }
 

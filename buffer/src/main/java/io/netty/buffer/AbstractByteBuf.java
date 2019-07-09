@@ -721,9 +721,12 @@ public abstract class AbstractByteBuf extends ByteBuf {
 
     @Override
     public byte readByte() {
+        // byte一个字节，检查确认有一个字节可读
         checkReadableBytes0(1);
         int i = readerIndex;
+        // 根据读指针读取byte
         byte b = _getByte(i);
+        // readerIndex加一
         readerIndex = i + 1;
         return b;
     }

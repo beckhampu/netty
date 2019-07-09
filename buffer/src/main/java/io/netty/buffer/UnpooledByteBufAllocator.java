@@ -79,6 +79,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
 
     @Override
     protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
+        //如果支持unsafe，创建UnpooledUnsafeHeapByteBuf，否则创建UnpooledHeapByteBuf
         return PlatformDependent.hasUnsafe() ?
                 new InstrumentedUnpooledUnsafeHeapByteBuf(this, initialCapacity, maxCapacity) :
                 new InstrumentedUnpooledHeapByteBuf(this, initialCapacity, maxCapacity);
@@ -134,18 +135,30 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         metric.heapCounter.add(-amount);
     }
 
+    // UnpooledUnsafeHeapByteBuf的度量封装，重写创建和释放内存方法
     private static final class InstrumentedUnpooledUnsafeHeapByteBuf extends UnpooledUnsafeHeapByteBuf {
         InstrumentedUnpooledUnsafeHeapByteBuf(UnpooledByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
             super(alloc, initialCapacity, maxCapacity);
         }
-
+    
+        /**
+         * 调用父类UnpooledUnsafeHeapByteBuf创建，然后使用metric记录内存
+         *
+         * @param initialCapacity
+         * @return
+         */
         @Override
         byte[] allocateArray(int initialCapacity) {
             byte[] bytes = super.allocateArray(initialCapacity);
             ((UnpooledByteBufAllocator) alloc()).incrementHeap(bytes.length);
             return bytes;
         }
-
+    
+        /**
+         * 调用父类UnpooledUnsafeHeapByteBuf释放，然后使用metric记录内存
+         *
+         * @param array
+         */
         @Override
         void freeArray(byte[] array) {
             int length = array.length;
