@@ -84,6 +84,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
 
     protected PoolArena(PooledByteBufAllocator parent, int pageSize,
           int maxOrder, int pageShifts, int chunkSize, int cacheAlignment) {
+        // allocator赋值
         this.parent = parent;
         this.pageSize = pageSize;
         this.maxOrder = maxOrder;
@@ -144,6 +145,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
     PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
         // 根据是否支持unsafe，创建 对应的 PooledByteBuf 对象
         PooledByteBuf<T> buf = newByteBuf(maxCapacity);
+        // 分配内存块给 PooledByteBuf 对象
         allocate(cache, buf, reqCapacity);
         return buf;
     }
@@ -164,11 +166,13 @@ abstract class PoolArena<T> implements PoolArenaMetric {
 
     // capacity < pageSize
     boolean isTinyOrSmall(int normCapacity) {
+        //subpageOverflowMask默认为-8192（-8K），8K之前都为1，后面都是0，小于8K的求与全是0
         return (normCapacity & subpageOverflowMask) == 0;
     }
 
     // normCapacity < 512
     static boolean isTiny(int normCapacity) {
+        //normCapacity与-512求与，小于512的全是0
         return (normCapacity & 0xFFFFFE00) == 0;
     }
 

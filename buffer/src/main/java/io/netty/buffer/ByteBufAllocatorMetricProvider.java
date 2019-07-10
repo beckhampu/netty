@@ -19,6 +19,8 @@ public interface ByteBufAllocatorMetricProvider {
 
     /**
      * Returns a {@link ByteBufAllocatorMetric} for a {@link ByteBufAllocator}.
+     *
+     * 返回一个ByteBufAllocatorMetric实例
      */
     ByteBufAllocatorMetric metric();
 }

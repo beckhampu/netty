@@ -39,26 +39,79 @@ import java.util.Queue;
 final class PoolThreadCache {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(PoolThreadCache.class);
-
+    
+    /**
+     * 对应的Heap PoolArena 对象
+     */
     final PoolArena<byte[]> heapArena;
+    
+    /**
+     * 对应的Direct PoolArena 对象
+     */
     final PoolArena<ByteBuffer> directArena;
 
     // Hold the caches for the different size classes, which are tiny, small and normal.
+    /**
+     * Heap 类型的 tiny SubPage 内存块缓存数组
+     */
     private final MemoryRegionCache<byte[]>[] tinySubPageHeapCaches;
+    
+    /**
+     * Heap 类型的 small SubPage 内存块缓存数组
+     */
     private final MemoryRegionCache<byte[]>[] smallSubPageHeapCaches;
+    
+    /**
+     * Direct 类型的 tiny SubPage 内存块缓存数组
+     */
     private final MemoryRegionCache<ByteBuffer>[] tinySubPageDirectCaches;
+    
+    /**
+     * Direct 类型的 small SubPage 内存块缓存数组
+     */
     private final MemoryRegionCache<ByteBuffer>[] smallSubPageDirectCaches;
+    
+    /**
+     * Heap 类型的 normal SubPage 内存块缓存数组
+     */
     private final MemoryRegionCache<byte[]>[] normalHeapCaches;
+    
+    /**
+     * Direct 类型的 normal SubPage 内存块缓存数组
+     */
     private final MemoryRegionCache<ByteBuffer>[] normalDirectCaches;
 
     // Used for bitshifting when calculate the index of normal caches later
+    
+    /**
+     * 用于计算请求分配的 normal 类型的内存块，在 {@link #normalDirectCaches} 数组中的位置
+     *
+     * 默认为 log2(pageSize) = log2(8192) = log2(2^13) = 13
+     */
     private final int numShiftsNormalDirect;
+    
+    /**
+     * 用于计算请求分配的 normal 类型的内存块，在 {@link #normalHeapCaches} 数组中的位置
+     *
+     * 默认为 log2(pageSize) = log2(8192) = log2(2^13) = 13
+     */
     private final int numShiftsNormalHeap;
+    
+    /**
+     * {@link #allocations} 到达该阀值，释放缓存。
+     *
+     * 默认为 8192 次
+     *
+     * @see #free()
+     */
     private final int freeSweepAllocationThreshold;
 
     private final Thread deathWatchThread;
     private final Runnable freeTask;
-
+    
+    /**
+     * 分配次数
+     */
     private int allocations;
 
     // TODO: Test if adding padding helps under contention
@@ -74,13 +127,23 @@ final class PoolThreadCache {
         this.freeSweepAllocationThreshold = freeSweepAllocationThreshold;
         this.heapArena = heapArena;
         this.directArena = directArena;
+    
+        // 初始化 Direct 类型的内存块缓存
         if (directArena != null) {
+            // 创建tiny SubPage 内存块缓存数组,数组长度为32(PoolArena.numTinySubpagePools=512>>>4=32)
+            // tinyCacheSize=512
             tinySubPageDirectCaches = createSubPageCaches(
                     tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny);
+            
+            // 创建small SubPage 内存块缓存数组,数组长度为4(directArena.numSmallSubpagePools=(13-9)=4)
+            // smallCacheSize=256
             smallSubPageDirectCaches = createSubPageCaches(
                     smallCacheSize, directArena.numSmallSubpagePools, SizeClass.Small);
 
             numShiftsNormalDirect = log2(directArena.pageSize);
+            
+            // 创建normal SubPage 内存块缓存数组,数组长度为3(maxCachedBufferCapacity=32*1024)
+            // normalCacheSize=64
             normalDirectCaches = createNormalCaches(
                     normalCacheSize, maxCachedBufferCapacity, directArena);
 
@@ -92,6 +155,8 @@ final class PoolThreadCache {
             normalDirectCaches = null;
             numShiftsNormalDirect = -1;
         }
+    
+        // 初始化 Heap 类型的内存块缓存
         if (heapArena != null) {
             // Create the caches for the heap allocations
             tinySubPageHeapCaches = createSubPageCaches(
@@ -156,7 +221,10 @@ final class PoolThreadCache {
     private static <T> MemoryRegionCache<T>[] createNormalCaches(
             int cacheSize, int maxCachedBufferCapacity, PoolArena<T> area) {
         if (cacheSize > 0 && maxCachedBufferCapacity > 0) {
+            
+            //chunkSize=16m,maxCachedBufferCapacity=32k,max=32K=32768
             int max = Math.min(area.chunkSize, maxCachedBufferCapacity);
+            // log2(max / area.pageSize) + 1 = log2(2^15/2^13) + 1 =log2(2^2) + 1 = 3,arraySie=3
             int arraySize = Math.max(1, log2(max / area.pageSize) + 1);
 
             @SuppressWarnings("unchecked")
@@ -381,11 +449,14 @@ final class PoolThreadCache {
     private abstract static class MemoryRegionCache<T> {
         private final int size;
         private final Queue<Entry<T>> queue;
+        // 内存规格（HUGE不在缓存中分配，不在此列）
         private final SizeClass sizeClass;
         private int allocations;
 
         MemoryRegionCache(int size, SizeClass sizeClass) {
+            // 对size进行规格化，查找下一个大于等于size的2次幂的数，保证size为2的次幂
             this.size = MathUtil.safeFindNextPositivePowerOfTwo(size);
+            // 创建queue队列，容量为size
             queue = PlatformDependent.newFixedMpscQueue(this.size);
             this.sizeClass = sizeClass;
         }
