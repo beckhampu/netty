@@ -177,13 +177,14 @@ abstract class PoolArena<T> implements PoolArenaMetric {
     }
 
     private void allocate(PoolThreadCache cache, PooledByteBuf<T> buf, final int reqCapacity) {
-        // 标准化请求分配的容量
+        // 标准化请求分配的容量,根据reqCapacity的大小判断类型，进行相应的规格化
         final int normCapacity = normalizeCapacity(reqCapacity);
         if (isTinyOrSmall(normCapacity)) { // capacity < pageSize
             int tableIdx;
             PoolSubpage<T>[] table;
             boolean tiny = isTiny(normCapacity);
             if (tiny) { // < 512
+                // 从 PoolThreadCache 缓存中，分配 tiny 内存块，并初始化到 PooledByteBuf 中。
                 if (cache.allocateTiny(this, buf, reqCapacity, normCapacity)) {
                     // was able to allocate out of the cache so move on
                     return;
@@ -346,7 +347,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
             return directMemoryCacheAlignment == 0 ? reqCapacity : alignCapacity(reqCapacity);
         }
     
-        // 非 tiny 内存类型
+        // 非 tiny 内存类型(small,normal),找一个2次幂的数值，且>=reqCapacity
         if (!isTiny(reqCapacity)) { // >= 512
             // Doubled
 
@@ -370,7 +371,8 @@ abstract class PoolArena<T> implements PoolArenaMetric {
         if (directMemoryCacheAlignment > 0) {
             return alignCapacity(reqCapacity);
         }
-
+        
+        // tiny补齐成16的倍数
         // Quantum-spaced
         if ((reqCapacity & 15) == 0) {
             return reqCapacity;
