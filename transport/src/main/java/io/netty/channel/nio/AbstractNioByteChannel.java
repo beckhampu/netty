@@ -144,15 +144,18 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                     // 触发 Channel read 事件到 pipeline 中
                     pipeline.fireChannelRead(byteBuf);
                     byteBuf = null;
-                } while (allocHandle.continueReading());
-
+                } while (allocHandle.continueReading());  // 循环判断是否继续读取
+    
+                // 读取完成
                 allocHandle.readComplete();
+                // 触发 Channel readComplete 事件到 pipeline 中。
                 pipeline.fireChannelReadComplete();
 
                 if (close) {
                     closeOnRead(pipeline);
                 }
             } catch (Throwable t) {
+                // 如果读取出现异常，则进行异常的传播
                 handleReadException(pipeline, byteBuf, t, close, allocHandle);
             } finally {
                 // Check if there is a readPending which was not processed yet.

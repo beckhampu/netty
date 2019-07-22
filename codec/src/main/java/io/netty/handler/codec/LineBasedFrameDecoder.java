@@ -90,34 +90,55 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
      *                          be created.
      */
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
+        // 获得换行符的位置
         final int eol = findEndOfLine(buffer);
+    
         if (!discarding) {
+            // 未处于丢弃模式
             if (eol >= 0) {
+                // 找到分隔符
                 final ByteBuf frame;
+                //设置读取的长度
                 final int length = eol - buffer.readerIndex();
+                // 获取分隔符的长度
                 final int delimLength = buffer.getByte(eol) == '\r'? 2 : 1;
-
+                
+                // 若读取长度超过最大长度
                 if (length > maxLength) {
+                    // 设置新的读取位置
                     buffer.readerIndex(eol + delimLength);
+                    // 触发 Exception 到下一个节点
                     fail(ctx, length);
+                    // 返回 null ，即未解码到消息
                     return null;
                 }
 
                 if (stripDelimiter) {
+                    //获取到对象赋值给frame
                     frame = buffer.readRetainedSlice(length);
+                    //丢弃分隔符
                     buffer.skipBytes(delimLength);
                 } else {
+                    //获取到对象赋值给frame
                     frame = buffer.readRetainedSlice(length + delimLength);
                 }
-
+                // 返回解码对象
                 return frame;
             } else {
+                // 没找到分隔符
                 final int length = buffer.readableBytes();
+                
+                // 如果读取的字节超过最大长度
                 if (length > maxLength) {
+                    // 记录丢弃的字节数
                     discardedBytes = length;
+                    // 重新设置可读位置到写入位置
                     buffer.readerIndex(buffer.writerIndex());
+                    // 标记 discarding 为废弃模式
                     discarding = true;
+                    // 重置 offset
                     offset = 0;
+                    // 如果快速失败，则触发 Exception 到下一个节点
                     if (failFast) {
                         fail(ctx, "over " + discardedBytes);
                     }
@@ -125,17 +146,27 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
                 return null;
             }
         } else {
+            // 若已处于丢弃模式
             if (eol >= 0) {
+                // 若找到分隔符
                 final int length = discardedBytes + eol - buffer.readerIndex();
                 final int delimLength = buffer.getByte(eol) == '\r'? 2 : 1;
+    
+                // 设置新的读取位置
                 buffer.readerIndex(eol + delimLength);
+                // 重置 discardedBytes
                 discardedBytes = 0;
+                // 设置 discarding 不为废弃模式
                 discarding = false;
+                
+                // 如果不为快速失败，则触发 Exception 到下一个节点
                 if (!failFast) {
                     fail(ctx, length);
                 }
             } else {
+                // 增加 discardedBytes
                 discardedBytes += buffer.readableBytes();
+                // 重新设置可读位置到写入位置
                 buffer.readerIndex(buffer.writerIndex());
             }
             return null;
@@ -158,15 +189,22 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
      */
     private int findEndOfLine(final ByteBuf buffer) {
         int totalLength = buffer.readableBytes();
+        // 查找"\n"的位置
         int i = buffer.forEachByte(buffer.readerIndex() + offset, totalLength - offset, ByteProcessor.FIND_LF);
+        
+        // 找到
         if (i >= 0) {
+            // 重置 offset
             offset = 0;
+            // 如果前一个字节位 `\r` ，说明找到的是 `\r\n`
             if (i > 0 && buffer.getByte(i - 1) == '\r') {
                 i--;
             }
         } else {
+            // 未找到，记录 offset
             offset = totalLength;
         }
+        // 返回index
         return i;
     }
 }
